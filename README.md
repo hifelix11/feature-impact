@@ -8,29 +8,27 @@ Pulse helps product and marketing teams measure the real impact of Bloomreach En
 |-------|-----------|
 | Frontend | React + TypeScript, Vite, Tailwind CSS |
 | Backend | Python, FastAPI |
-| Database | Supabase (PostgreSQL + Auth + Row-Level Security) |
+| Database | Supabase Cloud (PostgreSQL + Auth + Row-Level Security + Storage) |
 | Data Source | Bloomreach Engagement API |
 | AI Analysis | Anthropic Claude API |
-| Infrastructure | Docker, Docker Compose |
 
 ## Project Structure
 
 ```
 feature-impact/
 ├── backend/            # FastAPI application
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── routers/
-│   │   ├── services/   # Bloomreach sync, Claude analysis
-│   │   └── models/
-│   ├── Dockerfile
+│   ├── main.py
+│   ├── config.py
+│   ├── dependencies.py
+│   ├── routers/
+│   ├── services/       # Bloomreach sync, Claude analysis
+│   ├── models/
 │   └── requirements.txt
 ├── frontend/           # React + Vite application
 │   ├── src/
 │   └── package.json
 ├── supabase/           # Migrations and seed data
 │   └── migrations/
-├── docker-compose.yml
 ├── .env.example
 └── README.md
 ```
@@ -39,8 +37,8 @@ feature-impact/
 
 - Python 3.11+
 - Node.js 20+
-- Docker & Docker Compose
 - Supabase CLI (`npm install -g supabase`)
+- A [Supabase](https://supabase.com) cloud project
 - A Bloomreach Engagement account with API credentials
 - An Anthropic API key
 
@@ -53,34 +51,45 @@ feature-impact/
    cd feature-impact
    ```
 
-2. **Create your environment file**
+2. **Create a Supabase project**
+
+   Go to [supabase.com/dashboard](https://supabase.com/dashboard) and create a new project. From your project's **Settings > API** page, copy:
+   - **Project URL** → `SUPABASE_URL` / `VITE_SUPABASE_URL`
+   - **anon (public) key** → `SUPABASE_ANON_KEY` / `VITE_SUPABASE_ANON_KEY`
+   - **service_role (secret) key** → `SUPABASE_SERVICE_ROLE_KEY`
+
+3. **Create your environment file**
 
    ```bash
    cp .env.example .env
-   # Fill in your real keys in .env
+   # Fill in your Supabase, Bloomreach, and Anthropic keys
    ```
 
-3. **Start Supabase locally**
+4. **Run database migrations**
+
+   Link your Supabase project and push migrations:
 
    ```bash
-   npx supabase start
+   npx supabase login
+   npx supabase link --project-ref your-project-ref
+   npx supabase db push
    ```
 
-   This will print your local `SUPABASE_URL` and `SUPABASE_ANON_KEY`. Copy them into `.env`.
+   This applies all migrations from `supabase/migrations/` to your cloud database.
 
-4. **Start the backend**
+5. **Start the backend**
 
    ```bash
    cd backend
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
-   uvicorn app.main:app --reload
+   uvicorn main:app --reload
    ```
 
    The API will be available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-5. **Start the frontend**
+6. **Start the frontend**
 
    ```bash
    cd frontend
@@ -90,35 +99,27 @@ feature-impact/
 
    The app will be available at `http://localhost:5173`.
 
-### Using Docker Compose
-
-To run the backend and a Postgres instance together:
-
-```bash
-docker compose up --build
-```
-
-For the full Supabase stack (Auth, Realtime, PostgREST), use the Supabase CLI as described above -- Docker Compose only provides the database container.
-
 ## Development Commands
 
 | Command | Description |
 |---------|-------------|
-| `npx supabase start` | Start local Supabase stack |
-| `npx supabase db reset` | Reset database and re-run migrations |
+| `npx supabase login` | Authenticate with Supabase CLI |
+| `npx supabase link --project-ref <ref>` | Link to your cloud project |
+| `npx supabase db push` | Push migrations to cloud database |
+| `npx supabase db reset --linked` | Reset cloud database and re-run migrations |
 | `npx supabase migration new <name>` | Create a new migration file |
-| `uvicorn app.main:app --reload` | Start FastAPI dev server |
+| `uvicorn main:app --reload` | Start FastAPI dev server |
 | `pytest` | Run backend tests |
 | `npm run dev` | Start Vite dev server |
 | `npm run build` | Build frontend for production |
 | `npm run lint` | Lint frontend code |
-| `docker compose up --build` | Start all services via Docker |
 
 ## Environment Variables
 
 See [`.env.example`](.env.example) for the full list. Key variables:
 
-- `SUPABASE_URL` / `SUPABASE_ANON_KEY` -- connect to your Supabase project
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` -- connect to your Supabase cloud project
+- `SUPABASE_SERVICE_ROLE_KEY` -- used by the backend for service-role operations (bypasses RLS)
 - `BLOOMREACH_*` -- authenticate with the Bloomreach Engagement API
 - `ANTHROPIC_API_KEY` -- used by the backend to call Claude for impact analysis
 - `SYNC_INTERVAL_HOURS` -- how often the backend syncs data from Bloomreach (default: 6)
